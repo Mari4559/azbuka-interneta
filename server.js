@@ -17,19 +17,12 @@ const io = new Server(server, {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ============================================================
-//  ХРАНИЛИЩЕ КОМНАТ
-// ============================================================
 const rooms = new Map();
-
 const FINISH_POSITION = 30;
 const MAX_PLAYERS = 4;
-const RECONNECT_GRACE_MS = 2 * 60 * 1000;   // 2 минуты на переподключение
-const ROOM_IDLE_MS = 10 * 60 * 1000;        // удаление неактивной комнаты
+const RECONNECT_GRACE_MS = 2 * 60 * 1000;
+const ROOM_IDLE_MS = 10 * 60 * 1000;
 
-// ============================================================
-//  ВОПРОСЫ
-// ============================================================
 const Questions = [
   { q: "Что такое интернет, если говорить простыми словами?", a: ["Специальная программа для игр", "Всемирная сеть, объединяющая компьютеры", "Главный сайт для перехода на другие страницы"], c: 1 },
   { q: "Какой тип подключения к интернету считается наиболее надёжным?", a: ["Через телефонную сеть", "По выделенной линии (проводное)", "Спутниковое подключение"], c: 1 },
@@ -73,9 +66,6 @@ const Questions = [
   { q: "Можно ли отправить одно письмо сразу нескольким людям?", a: ["Да, указав их адреса в поле «Кому»", "Нет, только одному", "Да, но если они дружат"], c: 0 }
 ];
 
-// ============================================================
-//  СПЕЦИАЛЬНЫЕ КЛЕТКИ
-// ============================================================
 const SpecialCells = {
   5:  { icon: '📶', title: '📶 Надёжный Wi-Fi', effect: { type: 'move', value: 2 }, description: 'Вы попали на клетку «Надёжный Wi-Fi»! Перемещаетесь вперёд на 2 клетки.' },
   9:  { icon: '🔒', title: '🔒 Надёжный пароль', effect: { type: 'extraTurn' }, description: 'Вы попали на клетку «Надёжный пароль»! Вы получаете дополнительный ход.' },
@@ -87,22 +77,14 @@ const SpecialCells = {
   28: { icon: '📚', title: '📚 Полезный курс', effect: { type: 'extraQuestion' }, description: 'Вы попали на клетку «Полезный курс»! Вы получаете дополнительный вопрос.' }
 };
 
-// ============================================================
-//  УТИЛИТЫ
-// ============================================================
 function generateRoomId() {
-  let id;
-  let attempts = 0;
-  do {
-    id = Math.random().toString(36).substring(2, 8).toUpperCase();
-    attempts++;
-  } while (rooms.has(id) && attempts < 100);
+  let id, attempts = 0;
+  do { id = Math.random().toString(36).substring(2, 8).toUpperCase(); attempts++; }
+  while (rooms.has(id) && attempts < 100);
   return id;
 }
 
-function isLatin(str) {
-  return /[a-zA-Z]/.test(str);
-}
+function isLatin(str) { return /[a-zA-Z]/.test(str); }
 
 function sortPlayersByName(playersArray) {
   return [...playersArray]
@@ -117,36 +99,18 @@ function sortPlayersByName(playersArray) {
 }
 
 function getRandomQuestion(usedQuestions) {
-  if (usedQuestions.length >= Questions.length) {
-    usedQuestions.splice(0, usedQuestions.length);
-  }
-  let idx;
-  let attempts = 0;
-  do {
-    idx = Math.floor(Math.random() * Questions.length);
-    attempts++;
-  } while (usedQuestions.includes(idx) && attempts < 200);
+  if (usedQuestions.length >= Questions.length) usedQuestions.splice(0, usedQuestions.length);
+  let idx, attempts = 0;
+  do { idx = Math.floor(Math.random() * Questions.length); attempts++; }
+  while (usedQuestions.includes(idx) && attempts < 200);
   return usedQuestions.includes(idx) ? null : idx;
 }
 
-function rollDice() {
-  return Math.floor(Math.random() * 6) + 1;
-}
+function rollDice() { return Math.floor(Math.random() * 6) + 1; }
 
 function makePlayer(socketId, name, character, isHost = false, isBot = false) {
-  return {
-    id: socketId,
-    name,
-    character,
-    position: 1,
-    correct: 0,
-    moves: 0,
-    skipNext: false,
-    isHost,
-    isBot,
-    disconnected: false,
-    disconnectedAt: null
-  };
+  return { id: socketId, name, character, position: 1, correct: 0, moves: 0,
+           skipNext: false, isHost, isBot, disconnected: false, disconnectedAt: null };
 }
 
 function isNameOrAvatarTaken(room, name, characterId) {
@@ -159,19 +123,12 @@ function isNameOrAvatarTaken(room, name, characterId) {
 }
 
 function getRoomState(room) {
-  return {
-    roomId: room.id,
-    players: Array.from(room.players.values()),
-    turnOrder: room.turnOrder,
-    currentTurnIndex: room.currentTurnIndex,
-    finished: room.finished,
-    started: room.started,
-    waitingForAnswer: room.waitingForAnswer,
-    currentQuestion: room.currentQuestion,
-    currentDiceValue: room.currentDiceValue,
-    isExtraQuestion: room.isExtraQuestion,
-    hasBot: room.hasBot || false
-  };
+  return { roomId: room.id, players: Array.from(room.players.values()),
+           turnOrder: room.turnOrder, currentTurnIndex: room.currentTurnIndex,
+           finished: room.finished, started: room.started,
+           waitingForAnswer: room.waitingForAnswer, currentQuestion: room.currentQuestion,
+           currentDiceValue: room.currentDiceValue, isExtraQuestion: room.isExtraQuestion,
+           hasBot: room.hasBot || false };
 }
 
 function getRoomAndPlayer(socket) {
@@ -183,38 +140,20 @@ function getRoomAndPlayer(socket) {
   return { room, player };
 }
 
-// ============================================================
-//  КОМНАТЫ: создание / очередь ходов / очистка
-// ============================================================
 function createRoom(hostSocketId, playerName, character) {
   const roomId = generateRoomId();
   const room = {
-    id: roomId,
-    hostId: hostSocketId,
-    players: new Map(),
-    turnOrder: [],
-    currentTurnIndex: 0,
-    usedQuestions: [],
-    started: false,
-    finished: false,
-    waitingForAnswer: false,
-    diceRolling: false,
-    currentQuestion: null,
-    currentDiceValue: 0,
-    isExtraQuestion: false,
-    virusQueue: [],
-    lastActivity: Date.now(),
-    stuckReports: new Map(),
-    botProcessing: false,
-    hasBot: false
+    id: roomId, hostId: hostSocketId, players: new Map(), turnOrder: [],
+    currentTurnIndex: 0, usedQuestions: [], started: false, finished: false,
+    waitingForAnswer: false, diceRolling: false, currentQuestion: null,
+    currentDiceValue: 0, isExtraQuestion: false, virusQueue: [],
+    lastActivity: Date.now(), stuckReports: new Map(), botProcessing: false, hasBot: false
   };
   room.players.set(hostSocketId, makePlayer(hostSocketId, playerName, character, true, false));
   rooms.set(roomId, room);
   return room;
 }
 
-// Пересчёт очереди ходов. ВАЖНО: если текущий игрок остался в игре —
-// индекс сохраняет указание на него; если удалён — на его преемника.
 function updateTurnOrder(room) {
   const prevId = room.turnOrder.length > 0 ? room.turnOrder[room.currentTurnIndex] : null;
   const prevIdx = room.currentTurnIndex;
@@ -222,26 +161,18 @@ function updateTurnOrder(room) {
     Array.from(room.players.values()).filter(p => !p.disconnected)
   );
   room.turnOrder = newOrder;
-  if (newOrder.length === 0) {
-    room.currentTurnIndex = 0;
-    return;
-  }
+  if (newOrder.length === 0) { room.currentTurnIndex = 0; return; }
   if (prevId && newOrder.includes(prevId)) {
     room.currentTurnIndex = newOrder.indexOf(prevId);
   } else {
-    // Текущий игрок выбыл: индекс указывает на следующего по списку
     room.currentTurnIndex = Math.min(prevIdx, newOrder.length - 1);
-    if (!room.players.has(newOrder[room.currentTurnIndex])) {
-      room.currentTurnIndex = 0;
-    }
+    if (!room.players.has(newOrder[room.currentTurnIndex])) room.currentTurnIndex = 0;
   }
 }
 
-// Пропуск игроков с флагом skipNext (вирус). Возвращает активного игрока.
 function normalizeTurn(room) {
   if (room.turnOrder.length === 0) return null;
   if (room.currentTurnIndex >= room.turnOrder.length) room.currentTurnIndex = 0;
-
   const anyActive = room.turnOrder.some(id => {
     const p = room.players.get(id);
     return p && !p.skipNext && !p.disconnected;
@@ -250,7 +181,6 @@ function normalizeTurn(room) {
     room.players.forEach(p => { p.skipNext = false; });
     room.virusQueue = [];
   }
-
   let attempts = 0;
   let cur = room.players.get(room.turnOrder[room.currentTurnIndex]);
   while (cur && (cur.skipNext || cur.disconnected) && attempts < room.turnOrder.length) {
@@ -273,20 +203,14 @@ function advanceTurn(room) {
   room.currentDiceValue = 0;
   room.waitingForAnswer = false;
   room.diceRolling = false;
-
   if (room.turnOrder.length === 0) return;
-
   room.currentTurnIndex = (room.currentTurnIndex + 1) % room.turnOrder.length;
   const player = normalizeTurn(room);
-
   io.to(room.id).emit('turnChanged', {
     state: getRoomState(room),
     currentPlayerName: player ? player.name : ''
   });
-
-  if (player && player.isBot) {
-    scheduleBotTurn(room, 1200);
-  }
+  if (player && player.isBot) scheduleBotTurn(room, 1200);
 }
 
 function endGame(room) {
@@ -296,7 +220,6 @@ function endGame(room) {
   room.currentQuestion = null;
   room.currentDiceValue = 0;
   room.botProcessing = false;
-
   const sorted = Array.from(room.players.values()).sort((a, b) => {
     const aFin = a.position >= FINISH_POSITION ? 1 : 0;
     const bFin = b.position >= FINISH_POSITION ? 1 : 0;
@@ -304,16 +227,12 @@ function endGame(room) {
     if (b.correct !== a.correct) return b.correct - a.correct;
     return a.moves - b.moves;
   });
-
   io.to(room.id).emit('gameEnded', { winner: sorted[0], rating: sorted, state: getRoomState(room) });
 }
 
 function beginGame(room) {
   room.players.forEach(p => {
-    p.position = 1;
-    p.correct = 0;
-    p.moves = 0;
-    p.skipNext = false;
+    p.position = 1; p.correct = 0; p.moves = 0; p.skipNext = false;
   });
   room.turnOrder = sortPlayersByName(
     Array.from(room.players.values()).filter(p => !p.disconnected)
@@ -331,28 +250,19 @@ function beginGame(room) {
   room.virusQueue = [];
   room.botProcessing = false;
   if (room.stuckReports) room.stuckReports.clear();
-
   io.to(room.id).emit('gameStarted', { state: getRoomState(room) });
-
   const first = room.players.get(room.turnOrder[0]);
-  if (first && first.isBot) {
-    scheduleBotTurn(room, 2000);
-  }
+  if (first && first.isBot) scheduleBotTurn(room, 2000);
 }
 
 function cleanupRoomAfterChange(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
-
   if (room.players.size === 0) {
     rooms.delete(roomId);
-    console.log(`Комната удалена (пуста): ${roomId}`);
     return;
   }
-
   const connectedHumans = Array.from(room.players.values()).filter(p => !p.isBot && !p.disconnected);
-
-  // Миграция хоста
   const host = room.players.get(room.hostId);
   if ((!host || host.disconnected || host.isBot) && connectedHumans.length > 0) {
     const newHost = connectedHumans[0];
@@ -360,26 +270,13 @@ function cleanupRoomAfterChange(roomId) {
     room.players.forEach(p => { if (!p.isBot) p.isHost = (p.id === room.hostId); });
     io.to(roomId).emit('hostChanged', { state: getRoomState(room) });
   }
-
   if (connectedHumans.length === 0) {
-    if (!room.started) {
-      rooms.delete(roomId);
-      console.log(`Лобби без игроков удалено: ${roomId}`);
-      return;
-    }
+    if (!room.started) { rooms.delete(roomId); return; }
     const hasDisconnected = Array.from(room.players.values()).some(p => p.disconnected);
-    if (!hasDisconnected) {
-      // Остались только боты
-      rooms.delete(roomId);
-      console.log(`Комната только с ботами удалена: ${roomId}`);
-    }
-    // Иначе — ждём переподключения (удалит purge по таймеру)
+    if (!hasDisconnected) rooms.delete(roomId);
   }
 }
 
-// ============================================================
-//  БОТ
-// ============================================================
 function createBotPlayer(room) {
   const botNames = ['🤖 Робот', '🧠 ИИ-соперник', '⚡ Электроник', '💻 Компьютер', '🤖 Бот'];
   const allCharacters = [
@@ -401,13 +298,10 @@ function createBotPlayer(room) {
   const character = freeCharacters.length > 0
     ? freeCharacters[Math.floor(Math.random() * freeCharacters.length)]
     : allCharacters[Math.floor(Math.random() * allCharacters.length)];
-
   return makePlayer(
     `bot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     botNames[Math.floor(Math.random() * botNames.length)],
-    character,
-    false,
-    true
+    character, false, true
   );
 }
 
@@ -419,12 +313,10 @@ function botGetAnswer(question, difficulty) {
 }
 
 function scheduleBotTurn(room, baseDelay = 1200) {
-  if (room.finished) return;
-  if (room.turnOrder.length === 0) return;
+  if (room.finished || room.turnOrder.length === 0) return;
   const playerId = room.turnOrder[room.currentTurnIndex];
   const player = room.players.get(playerId);
-  if (!player || !player.isBot) return;
-  if (room.botProcessing) return; // защита от двойного планирования
+  if (!player || !player.isBot || room.botProcessing) return;
   room.botProcessing = true;
   const delay = baseDelay + Math.random() * 1300;
   setTimeout(() => runBotTurn(room, playerId), delay);
@@ -436,8 +328,6 @@ function runBotTurn(room, botId) {
   if (room.turnOrder[room.currentTurnIndex] !== botId) return fail();
   const player = room.players.get(botId);
   if (!player || !player.isBot || player.disconnected) return fail();
-
-  // Пропуск хода из-за вируса
   if (player.skipNext) {
     player.skipNext = false;
     room.virusQueue = room.virusQueue.filter(id => id !== botId);
@@ -446,18 +336,15 @@ function runBotTurn(room, botId) {
     advanceTurn(room);
     return;
   }
-
   const diceValue = rollDice();
   room.currentDiceValue = diceValue;
   room.diceRolling = true;
   player.moves++;
   room.lastActivity = Date.now();
   io.to(room.id).emit('diceRolled', { value: diceValue, state: getRoomState(room) });
-
   setTimeout(() => {
     if (!rooms.has(room.id) || room.finished) return fail();
     if (room.turnOrder[room.currentTurnIndex] !== botId) return fail();
-
     const qIdx = getRandomQuestion(room.usedQuestions);
     if (qIdx === null) {
       room.botProcessing = false;
@@ -471,27 +358,22 @@ function runBotTurn(room, botId) {
     room.diceRolling = false;
     const askedQuestion = room.currentQuestion;
     io.to(room.id).emit('questionShown', {
-      question: room.currentQuestion,
-      diceValue,
-      state: getRoomState(room)
+      question: room.currentQuestion, diceValue, state: getRoomState(room)
     });
-
     setTimeout(() => {
       if (!rooms.has(room.id) || room.finished) return fail();
       if (!room.waitingForAnswer) return fail();
       if (room.turnOrder[room.currentTurnIndex] !== botId) return fail();
-      if (room.currentQuestion !== askedQuestion) return fail(); // защита от сброса состояния
-
+      if (room.currentQuestion !== askedQuestion) return fail();
       const difficulty = 0.5 + Math.random() * 0.35;
       const answer = botGetAnswer(askedQuestion, difficulty);
       io.to(room.id).emit('answerSelected', { answerIndex: answer, playerName: player.name });
-
       setTimeout(() => {
         if (!rooms.has(room.id) || room.finished) return fail();
         if (!room.waitingForAnswer) return fail();
         if (room.turnOrder[room.currentTurnIndex] !== botId) return fail();
         if (room.currentQuestion !== askedQuestion) return fail();
-        room.botProcessing = false; // до resolveAnswer: он может заново запланировать бота
+        room.botProcessing = false;
         resolveAnswer(room, player, answer);
       }, 900);
     }, 1500 + Math.random() * 1500);
@@ -505,11 +387,9 @@ function scheduleBotAnswer(room, player) {
     if (room.turnOrder[room.currentTurnIndex] !== player.id) return;
     if (!room.players.has(player.id)) return;
     if (room.currentQuestion !== askedQuestion) return;
-
     const difficulty = 0.5 + Math.random() * 0.35;
     const answer = botGetAnswer(askedQuestion, difficulty);
     io.to(room.id).emit('answerSelected', { answerIndex: answer, playerName: player.name });
-
     setTimeout(() => {
       if (!rooms.has(room.id) || room.finished || !room.waitingForAnswer) return;
       if (room.turnOrder[room.currentTurnIndex] !== player.id) return;
@@ -519,22 +399,12 @@ function scheduleBotAnswer(room, player) {
   }, 2000 + Math.random() * 1000);
 }
 
-// ============================================================
-//  СПЕЦКЛЕТКИ: применяются ТОЛЬКО при фактическом входе на клетку
-// ============================================================
 function applySpecialCells(room, startPosition) {
-  const result = {
-    finished: false,
-    extraTurn: false,
-    extraQuestion: false,
-    skipNext: false,
-    cells: [],
-    finalPosition: startPosition
-  };
+  const result = { finished: false, extraTurn: false, extraQuestion: false,
+                   skipNext: false, cells: [], finalPosition: startPosition };
   const playerId = room.turnOrder[room.currentTurnIndex];
   const player = room.players.get(playerId);
   if (!player) return result;
-
   let pos = startPosition;
   let guard = 0;
   while (SpecialCells[pos] && guard < 10) {
@@ -542,16 +412,12 @@ function applySpecialCells(room, startPosition) {
     const sp = SpecialCells[pos];
     result.cells.push(sp);
     const eff = sp.effect;
-
     if (eff.type === 'move') {
       pos = Math.max(1, Math.min(FINISH_POSITION, pos + eff.value));
       player.position = pos;
       result.finalPosition = pos;
-      if (pos >= FINISH_POSITION) {
-        result.finished = true;
-        return result;
-      }
-      continue; // цепочка клеток
+      if (pos >= FINISH_POSITION) { result.finished = true; return result; }
+      continue;
     }
     if (eff.type === 'extraTurn') { result.extraTurn = true; break; }
     if (eff.type === 'extraQuestion') { result.extraQuestion = true; break; }
@@ -561,85 +427,56 @@ function applySpecialCells(room, startPosition) {
   return result;
 }
 
-// ============================================================
-//  ЕДИНЫЙ ОБРАБОТЧИК ОТВЕТА (человек и бот)
-// ============================================================
 function resolveAnswer(room, player, chosenIndex) {
   if (!room.currentQuestion) return;
-
   const correct = room.currentQuestion.c;
   const isCorrect = chosenIndex === correct;
   const dice = room.currentDiceValue;
   const moved = isCorrect && dice > 0;
-
   room.waitingForAnswer = false;
   room.diceRolling = false;
   room.isExtraQuestion = false;
   room.currentQuestion = null;
   room.currentDiceValue = 0;
   room.lastActivity = Date.now();
-
   if (isCorrect) {
     player.correct++;
-    if (dice > 0) {
-      player.position = Math.min(player.position + dice, FINISH_POSITION);
-    }
+    if (dice > 0) player.position = Math.min(player.position + dice, FINISH_POSITION);
   }
-  // ВАЖНО: при неверном ответе фишка НЕ двигается и спецклетка
-  // текущей позиции НЕ срабатывает повторно.
-
-  // Финиш
   if (moved && player.position >= FINISH_POSITION) {
     endGame(room);
     io.to(room.id).emit('answerResult', {
-      isCorrect,
-      correctAnswer: correct,
-      state: getRoomState(room),
+      isCorrect, correctAnswer: correct, state: getRoomState(room),
       message: `${player.name} дошёл до финиша!`
     });
     return;
   }
-
-  // Спецклетка — только если фишка реально на неё встала
   if (moved && SpecialCells[player.position]) {
     const outcome = applySpecialCells(room, player.position);
-
     for (const sp of outcome.cells) {
       io.to(room.id).emit('specialCellMessage', {
-        title: sp.title,
-        description: sp.description,
-        icon: sp.icon,
-        playerName: player.name
+        title: sp.title, description: sp.description, icon: sp.icon, playerName: player.name
       });
     }
-
     if (outcome.finished) {
       endGame(room);
       io.to(room.id).emit('answerResult', {
-        isCorrect,
-        correctAnswer: correct,
-        state: getRoomState(room),
+        isCorrect, correctAnswer: correct, state: getRoomState(room),
         message: `${player.name} дошёл до финиша!`
       });
       return;
     }
-
     if (outcome.extraTurn) {
       io.to(room.id).emit('answerResult', {
-        isCorrect,
-        correctAnswer: correct,
-        state: getRoomState(room),
-        specialCell: outcome.cells[0],
-        extraTurn: true
+        isCorrect, correctAnswer: correct, state: getRoomState(room),
+        specialCell: outcome.cells[0], extraTurn: true
       });
       io.to(room.id).emit('turnChanged', {
-        state: getRoomState(room),
-        currentPlayerName: player.name
+        state: getRoomState(room), currentPlayerName: player.name
       });
       if (player.isBot) scheduleBotTurn(room, 1500);
       return;
     }
-
     if (outcome.extraQuestion) {
       const qIdx = getRandomQuestion(room.usedQuestions);
       if (qIdx === null) {
@@ -653,60 +490,39 @@ function resolveAnswer(room, player, chosenIndex) {
       room.isExtraQuestion = true;
       room.currentDiceValue = 0;
       io.to(room.id).emit('answerResult', {
-        isCorrect,
-        correctAnswer: correct,
-        state: getRoomState(room),
-        specialCell: outcome.cells[0],
-        isExtraQuestion: true
+        isCorrect, correctAnswer: correct, state: getRoomState(room),
+        specialCell: outcome.cells[0], isExtraQuestion: true
       });
       io.to(room.id).emit('questionShown', {
-        question: room.currentQuestion,
-        diceValue: 0,
-        state: getRoomState(room),
-        isExtraQuestion: true
+        question: room.currentQuestion, diceValue: 0,
+        state: getRoomState(room), isExtraQuestion: true
       });
       if (player.isBot) scheduleBotAnswer(room, player);
       return;
     }
-
     if (outcome.skipNext) {
       player.skipNext = true;
       if (!room.virusQueue.includes(player.id)) room.virusQueue.push(player.id);
       io.to(room.id).emit('answerResult', {
-        isCorrect,
-        correctAnswer: correct,
-        state: getRoomState(room),
-        specialCell: outcome.cells[0],
-        skipNext: true,
-        turnAdvanced: true
+        isCorrect, correctAnswer: correct, state: getRoomState(room),
+        specialCell: outcome.cells[0], skipNext: true, turnAdvanced: true
       });
       advanceTurn(room);
       return;
     }
-
-    // Чистая цепочка перемещений
     io.to(room.id).emit('answerResult', {
-      isCorrect,
-      correctAnswer: correct,
-      state: getRoomState(room),
+      isCorrect, correctAnswer: correct, state: getRoomState(room),
       specialCell: outcome.cells[0]
     });
     advanceTurn(room);
     return;
   }
-
-  // Обычный исход (верный ответ без спецклетки или неверный ответ)
   io.to(room.id).emit('answerResult', {
-    isCorrect,
-    correctAnswer: correct,
-    state: getRoomState(room)
+    isCorrect, correctAnswer: correct, state: getRoomState(room)
   });
   advanceTurn(room);
 }
 
-// ============================================================
-//  ОТСОЕДИНЕНИЕ / ПЕРЕПОДКЛЮЧЕНИЕ
-// ============================================================
 function detachPlayerFromRoom(socket) {
   const roomId = socket.data.roomId;
   socket.data.roomId = null;
@@ -716,78 +532,56 @@ function detachPlayerFromRoom(socket) {
   socket.leave(roomId);
   if (room.stuckReports) room.stuckReports.delete(socket.id);
   if (!player || player.isBot) return;
-
   const wasCurrent = room.turnOrder[room.currentTurnIndex] === socket.id;
-
   if (!room.started) {
-    // Лобби: удаляем полностью
     room.players.delete(socket.id);
     updateTurnOrder(room);
     io.to(roomId).emit('playerLeft', { state: getRoomState(room), name: player.name });
     cleanupRoomAfterChange(roomId);
     return;
   }
-
-  // Игра идёт: помечаем отключённым и даём окно на переподключение
   player.disconnected = true;
   player.disconnectedAt = Date.now();
-
   if (wasCurrent) {
     room.waitingForAnswer = false;
     room.diceRolling = false;
     room.currentQuestion = null;
     room.currentDiceValue = 0;
   }
-
   updateTurnOrder(room);
   io.to(roomId).emit('playerLeft', { state: getRoomState(room), name: player.name, disconnected: true });
-
   if (wasCurrent && !room.finished) {
-    // Ход переходит к преемнику (индекс уже указывает на него)
     const next = normalizeTurn(room);
     io.to(roomId).emit('turnChanged', {
-      state: getRoomState(room),
-      currentPlayerName: next ? next.name : ''
+      state: getRoomState(room), currentPlayerName: next ? next.name : ''
     });
     if (next && next.isBot) scheduleBotTurn(room, 1500);
   }
-
   cleanupRoomAfterChange(roomId);
 }
 
-// ============================================================
-//  ФОНОВАЯ ОЧИСТКА
-// ============================================================
 setInterval(() => {
   const now = Date.now();
   for (const [roomId, room] of rooms.entries()) {
     let changed = false;
-
-    // Удаляем давно отключённых игроков
     for (const [pid, p] of Array.from(room.players.entries())) {
       if (p.disconnected && now - (p.disconnectedAt || 0) > RECONNECT_GRACE_MS) {
         room.players.delete(pid);
         changed = true;
-        console.log(`Игрок ${p.name} удалён после таймаута переподключения (${roomId})`);
       }
     }
     if (changed) {
       updateTurnOrder(room);
       io.to(roomId).emit('playerLeft', { state: getRoomState(room) });
     }
-
     if (room.players.size === 0 || now - room.lastActivity > ROOM_IDLE_MS) {
       rooms.delete(roomId);
-      console.log(`Очищена неактивная комната: ${roomId}`);
       continue;
     }
     cleanupRoomAfterChange(roomId);
   }
 }, 60 * 1000);
 
-// ============================================================
-//  ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ
-// ============================================================
 function validateNameCharacter(playerName, character) {
   const cleanName = String(playerName || '').trim();
   if (!cleanName || cleanName.length < 2 || cleanName.length > 20) {
@@ -800,18 +594,13 @@ function validateNameCharacter(playerName, character) {
   return { cleanName };
 }
 
-// ============================================================
-//  СОБЫТИЯ SOCKET.IO
-// ============================================================
 io.on('connection', (socket) => {
   console.log('Подключение:', socket.id);
 
-  // ---------------- Создание комнаты (сетевая игра) ----------------
   socket.on('createRoom', ({ playerName, character } = {}) => {
     const v = validateNameCharacter(playerName, character);
     if (v.error) return socket.emit('error', v.error);
-
-    detachPlayerFromRoom(socket); // защита от нахождения в двух комнатах
+    detachPlayerFromRoom(socket);
     const room = createRoom(socket.id, v.cleanName, character);
     socket.data.roomId = room.id;
     socket.join(room.id);
@@ -819,22 +608,18 @@ io.on('connection', (socket) => {
     socket.emit('roomCreated', { roomId: room.id, state: getRoomState(room) });
   });
 
-  // ---------------- Создание комнаты с ботом ----------------
   socket.on('createBotRoom', ({ playerName, character } = {}) => {
     const v = validateNameCharacter(playerName, character);
     if (v.error) return socket.emit('error', v.error);
-
     detachPlayerFromRoom(socket);
     const room = createRoom(socket.id, v.cleanName, character);
     room.hasBot = true;
-    const bot = createBotPlayer(room); // аватар бота не совпадёт с занятыми
+    const bot = createBotPlayer(room);
     room.players.set(bot.id, bot);
     socket.data.roomId = room.id;
     socket.join(room.id);
     room.turnOrder = sortPlayersByName(Array.from(room.players.values()));
     socket.emit('roomCreated', { roomId: room.id, state: getRoomState(room) });
-
-    // Авто-старт через 1,5 секунды
     setTimeout(() => {
       if (!rooms.has(room.id)) return;
       const r = rooms.get(room.id);
@@ -845,14 +630,12 @@ io.on('connection', (socket) => {
     }, 1500);
   });
 
-  // ---------------- Проверка комнаты перед входом ----------------
   socket.on('checkRoom', ({ roomId } = {}) => {
     const room = rooms.get(roomId);
     if (!room) return socket.emit('roomCheckResult', { success: false, error: 'Комната не найдена' });
     if (room.finished) return socket.emit('roomCheckResult', { success: false, error: 'Игра уже завершена' });
     if (room.started) return socket.emit('roomCheckResult', { success: false, error: 'Игра уже началась' });
     if (room.players.size >= MAX_PLAYERS) return socket.emit('roomCheckResult', { success: false, error: 'Комната заполнена' });
-
     const takenIds = Array.from(room.players.values())
       .filter(p => p.character && typeof p.character.id === 'number')
       .map(p => p.character.id);
@@ -860,21 +643,17 @@ io.on('connection', (socket) => {
     socket.emit('roomCheckResult', { success: true, availableAvatars: available });
   });
 
-  // ---------------- Вход в комнату ----------------
   socket.on('joinRoom', ({ roomId, playerName, character } = {}) => {
     const room = rooms.get(roomId);
     if (!room) return socket.emit('error', 'Комната не найдена');
     if (room.finished) return socket.emit('error', 'Игра уже завершена');
     if (room.started) return socket.emit('error', 'Игра уже началась. Дождитесь окончания партии.');
     if (room.players.size >= MAX_PLAYERS) return socket.emit('error', 'Комната заполнена');
-
     const v = validateNameCharacter(playerName, character);
     if (v.error) return socket.emit('error', v.error);
-
     const conflict = isNameOrAvatarTaken(room, v.cleanName, character.id);
     if (conflict === 'name') return socket.emit('error', 'Игрок с таким именем уже есть в комнате. Выберите другое.');
     if (conflict === 'avatar') return socket.emit('error', 'Этот аватар уже занят. Пожалуйста, выберите другой.');
-
     detachPlayerFromRoom(socket);
     room.players.set(socket.id, makePlayer(socket.id, v.cleanName, character, false, false));
     socket.data.roomId = room.id;
@@ -884,22 +663,18 @@ io.on('connection', (socket) => {
     io.to(room.id).emit('playerJoined', { state: getRoomState(room), name: v.cleanName });
   });
 
-  // ---------------- Переподключение ----------------
   socket.on('rejoinRoom', ({ roomId, playerName } = {}) => {
     const room = rooms.get(roomId);
     if (!room) return socket.emit('error', 'Комната удалена');
     if (room.finished) return socket.emit('error', 'Игра уже завершена');
-
     const cleanName = String(playerName || '').trim().toLowerCase();
     if (!cleanName) return socket.emit('error', 'Игрок не найден в комнате');
-
     let found = null;
     for (const p of room.players.values()) {
       if (!p.isBot && p.name.toLowerCase() === cleanName) { found = p; break; }
     }
     if (!found) return socket.emit('error', 'Игрок не найден в комнате');
     if (!found.disconnected) return socket.emit('error', 'Игрок уже подключён');
-
     const oldId = found.id;
     if (oldId !== socket.id) {
       room.players.delete(oldId);
@@ -914,24 +689,18 @@ io.on('connection', (socket) => {
     found.isHost = (room.hostId === socket.id);
     updateTurnOrder(room);
     room.lastActivity = Date.now();
-
     socket.emit('rejoined', { state: getRoomState(room) });
     socket.to(room.id).emit('playerJoined', { state: getRoomState(room), name: found.name });
-    console.log(`Игрок ${found.name} переподключился (новый id: ${socket.id})`);
   });
 
-  // ---------------- Старт / перезапуск игры ----------------
   socket.on('startGame', () => {
     const ctx = getRoomAndPlayer(socket);
     if (!ctx) return;
     const room = ctx.room;
     if (room.hostId !== socket.id) return;
-    if (room.started && !room.finished) return; // игра уже идёт
-
+    if (room.started && !room.finished) return;
     const humans = Array.from(room.players.values()).filter(p => !p.isBot && !p.disconnected);
-    if (humans.length < 1) {
-      return socket.emit('error', 'В комнате должен быть хотя бы один реальный игрок');
-    }
+    if (humans.length < 1) return socket.emit('error', 'В комнате должен быть хотя бы один реальный игрок');
     beginGame(room);
   });
 
@@ -944,7 +713,6 @@ io.on('connection', (socket) => {
     beginGame(room);
   });
 
-  // ---------------- Бросок кубика ----------------
   socket.on('rollDice', () => {
     const ctx = getRoomAndPlayer(socket);
     if (!ctx) return;
@@ -953,22 +721,18 @@ io.on('connection', (socket) => {
     if (room.turnOrder.length === 0) return;
     const currentPlayerId = room.turnOrder[room.currentTurnIndex];
     if (ctx.player.id !== currentPlayerId || ctx.player.isBot) return;
-
     const diceValue = rollDice();
     room.currentDiceValue = diceValue;
-    room.diceRolling = true; // защита от повторного броска во время анимации
+    room.diceRolling = true;
     ctx.player.moves++;
     room.lastActivity = Date.now();
     io.to(room.id).emit('diceRolled', { value: diceValue, state: getRoomState(room) });
-
     setTimeout(() => {
       const currentCtx = getRoomAndPlayer(socket);
       if (!currentCtx) return;
       const r = currentCtx.room;
       if (r.finished) return;
       if (r.turnOrder[r.currentTurnIndex] !== socket.id) return;
-
-      // Вирус: пропуск хода (страховочный путь)
       if (currentCtx.player.skipNext) {
         currentCtx.player.skipNext = false;
         r.virusQueue = r.virusQueue.filter(id => id !== currentCtx.player.id);
@@ -978,7 +742,6 @@ io.on('connection', (socket) => {
         advanceTurn(r);
         return;
       }
-
       const qIdx = getRandomQuestion(r.usedQuestions);
       if (qIdx === null) {
         r.diceRolling = false;
@@ -991,14 +754,11 @@ io.on('connection', (socket) => {
       r.waitingForAnswer = true;
       r.diceRolling = false;
       io.to(r.id).emit('questionShown', {
-        question: r.currentQuestion,
-        diceValue,
-        state: getRoomState(r)
+        question: r.currentQuestion, diceValue, state: getRoomState(r)
       });
     }, 2500);
   });
 
-  // ---------------- Подсветка выбранного варианта ----------------
   socket.on('selectAnswer', (answerIndex) => {
     const ctx = getRoomAndPlayer(socket);
     if (!ctx || !ctx.room.waitingForAnswer) return;
@@ -1009,7 +769,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ---------------- Ответ на вопрос ----------------
   socket.on('answerQuestion', (chosenIndex) => {
     const ctx = getRoomAndPlayer(socket);
     if (!ctx || !ctx.room.waitingForAnswer || !ctx.room.currentQuestion) return;
@@ -1019,17 +778,14 @@ io.on('connection', (socket) => {
     resolveAnswer(ctx.room, ctx.player, chosenIndex);
   });
 
-  // ---------------- Сообщение о зависании ----------------
   socket.on('reportStuck', () => {
     const ctx = getRoomAndPlayer(socket);
     if (!ctx) return;
     const room = ctx.room;
     if (!room.stuckReports) room.stuckReports = new Map();
     room.stuckReports.set(socket.id, Date.now());
-
     const isHost = room.hostId === socket.id;
     const reportCount = room.stuckReports.size;
-
     if (isHost || reportCount >= 2) {
       room.waitingForAnswer = false;
       room.diceRolling = false;
@@ -1039,8 +795,7 @@ io.on('connection', (socket) => {
       room.currentTurnIndex = 0;
       const p = normalizeTurn(room);
       io.to(room.id).emit('turnChanged', {
-        state: getRoomState(room),
-        currentPlayerName: p ? p.name : ''
+        state: getRoomState(room), currentPlayerName: p ? p.name : ''
       });
       io.to(room.id).emit('message', { text: 'Состояние игры сброшено', type: 'warning' });
       room.stuckReports.clear();
@@ -1053,7 +808,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ---------------- Отключение ----------------
   socket.on('disconnect', () => {
     console.log('Отключение:', socket.id);
     detachPlayerFromRoom(socket);
