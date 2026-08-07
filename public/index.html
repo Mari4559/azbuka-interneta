@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#e3f2fd">
+<meta name="supported-color-schemes" content="light dark">
+<title>Азбука интернета — Онлайн</title>
+<style>
+:root{--blue:#1e88e5;--teal:#00897b;--violet:#7e57c2;--green:#81c784;--bg-1:#e3f2fd;--bg-2:#e0f7fa;--text:#1a237e;--text-soft:#37474f;--white:#ffffff;--shadow-lg:0 12px 40px rgba(21,101,192,.25);--card-bg:#ffffff;--input-bg:#ffffff;--border-color:#cfd8dc;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:linear-gradient(135deg,var(--bg-1) 0%,var(--bg-2) 100%) !important;color:var(--text);font-family:'Segoe UI',Tahoma,Verdana,sans-serif;font-size:18px;min-height:100vh;overflow-x:hidden;}
+button{touch-action:manipulation;cursor:pointer}
+input{font-family:inherit;font-size:inherit}
+
+@media (prefers-color-scheme: dark) {
+  :root{--bg-1:#1a237e;--bg-2:#0d1445;--text:#e8eaf6;--text-soft:#b0bec5;--white:#263238;--card-bg:#263238;--input-bg:#37474f;--border-color:#546e7a;--shadow-lg:0 12px 40px rgba(0,0,0,.5);}
+  html,body{background:linear-gradient(135deg,var(--bg-1) 0%,var(--bg-2) 100%) !important;color:var(--text) !important;}
+  .card,.modal-content,.player-item,.character-cell,.input-field,.answer-btn{background:var(--card-bg) !important;color:var(--text) !important;border-color:var(--border-color) !important;}
+  .answer-btn.correct{background:#1b5e20 !important;color:#a5d6a7 !important;border-color:#388e3c !important;}
+  .answer-btn.wrong{background:#b71c1c !important;color:#ef9a9a !important;border-color:#c62828 !important;}
+  .answer-btn.selected{background:#0d47a1 !important;color:#90caf9 !important;border-color:#1565c0 !important;font-weight:700;}
+  .character-cell.taken{opacity:0.3;cursor:not-allowed;filter:grayscale(100%);}
+  .cell{color:#fff !important;text-shadow:0 1px 3px rgba(0,0,0,.5);}
+  .cell.finish{color:#5d4037 !important;text-shadow:none;}
+  .answer-result-feedback.correct{background:#1b5e20 !important;color:#a5d6a7 !important;border-color:#388e3c !important;}
+  .answer-result-feedback.wrong{background:#b71c1c !important;color:#ef9a9a !important;border-color:#c62828 !important;}
+  .btn-secondary{background:var(--card-bg) !important;color:#b39ddb !important;border-color:#7e57c2 !important;}
+  .btn-rules{background:var(--card-bg) !important;color:#90caf9 !important;border-color:#42a5f5 !important;}
+  .btn-primary{background:linear-gradient(135deg,#1565c0,#00695c) !important;color:#fff !important;}
+  .btn-bot{background:linear-gradient(135deg,#6a1b9a,#3949ab) !important;color:#fff !important;}
+  .room-code{background:linear-gradient(135deg,#1a237e,#311b92) !important;color:#b39ddb !important;}
+  .rules-content .special-cell{background:linear-gradient(135deg,#1a237e,#311b92) !important;color:var(--text) !important;}
+  .modal{background:rgba(0,0,0,.8) !important;backdrop-filter:blur(8px);}
+  .status-badge.host{background:#f9a825;color:#1a237e;}
+  .status-badge.bot{background:#7e57c2;color:#fff;}
+  .rating-row{background:#1a237e !important;}
+  .rating-row.first{background:linear-gradient(135deg,#2a2a00,#4a3a00) !important;color:#ffd54f !important;}
+  .player-item{background:#1a237e !important;}
+  .player-item.active{background:#0d47a1 !important;border:2px solid #42a5f5 !important;}
+  .toast{background:#263238 !important;color:#e8eaf6 !important;border-left-color:var(--teal) !important;}
+  .toast.error{border-left-color:#ef5350 !important;}
+  .toast.success{border-left-color:#66bb6a !important;}
+  .toast.warning{border-left-color:#ffa726 !important;}
+  .connection-status{background:#e65100 !important;color:#fff !important;}
+}
+
+.answer-result-feedback {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  display: none;
+  animation: fadeInFeedback 0.5s ease;
+}
+.answer-result-feedback.correct {
+  display: block;
+  background: #c8e6c9;
+  color: #1b5e20;
+  border: 2px solid #66bb6a;
+}
+.answer-result-feedback.wrong {
+  display: block;
+  background: #ffcdd2;
+  color: #b71c1c;
+  border: 2px solid #ef9a9a;
+}
+.answer-result-feedback .correct-answer-text {
+  font-weight: 700;
+  color: #1b5e20;
+}
+@keyframes fadeInFeedback {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.screen{display:none;padding:20px;max-width:800px;margin:0 auto}
+.screen.active{display:block}
+.card{background:var(--card-bg);border-radius:24px;padding:32px;box-shadow:var(--shadow-lg);margin-bottom:20px;border:1px solid var(--border-color);}
+h1{font-size:36px;text-align:center;margin-bottom:16px;background:linear-gradient(90deg,var(--blue),var(--teal),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;}
+h2{font-size:24px;margin-bottom:12px;color:var(--text)}
+.subtitle{text-align:center;color:var(--text-soft);margin-bottom:24px;font-size:16px}
+.btn{display:block;width:100%;padding:14px 24px;border:none;border-radius:40px;font-size:18px;font-weight:700;cursor:pointer;transition:all .3s ease;margin-bottom:12px;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--teal));color:var(--white);box-shadow:0 6px 18px rgba(0,137,123,.4);}
+.btn-bot{background:linear-gradient(135deg,#7e57c2,#5c6bc0);color:var(--white);box-shadow:0 6px 18px rgba(94,53,177,.4);}
+.btn-secondary{background:var(--card-bg);color:var(--violet);border:3px solid var(--violet);}
+.btn-rules{background:var(--card-bg);color:var(--blue);border:3px solid var(--blue);}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.input-field{width:100%;padding:14px 18px;border:2px solid var(--border-color);border-radius:16px;font-size:18px;margin-bottom:16px;outline:none;background:var(--input-bg);color:var(--text);}
+.room-code{font-size:48px;font-weight:700;text-align:center;letter-spacing:8px;color:var(--violet);padding:20px;background:linear-gradient(135deg,#e1f5fe,#f3e5f5);border-radius:20px;margin:16px 0;}
+.characters-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0;}
+.character-cell{position:relative;aspect-ratio:1;border-radius:16px;border:3px solid var(--border-color);background:var(--card-bg);cursor:pointer;transition:all .25s ease;overflow:hidden;padding:8px;}
+.character-cell:hover{transform:translateY(-3px);box-shadow:0 6px 14px rgba(0,0,0,.1);border-color:var(--blue);}
+.character-cell.selected{border-color:var(--teal);background:linear-gradient(135deg,#e0f2f1,#ffffff);}
+.character-cell svg{width:100%;height:100%;display:block}
+.character-cell .check-mark{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:var(--teal);color:var(--white);display:none;align-items:center;justify-content:center;font-weight:700;font-size:16px;}
+.character-cell.selected .check-mark{display:flex}
+.players-list{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.player-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--card-bg);border-radius:14px;border:1px solid var(--border-color);}
+.player-item.active{background:#e0f2f1;border:2px solid var(--teal)}
+.player-item .avatar{width:48px;height:48px;border-radius:50%;overflow:hidden;border:2px solid var(--white);box-shadow:0 2px 4px rgba(0,0,0,.15);flex-shrink:0;}
+.player-item .avatar svg{width:100%;height:100%;display:block}
+.player-item .info{flex:1;min-width:0}
+.player-item .name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-item .stats{font-size:13px;color:var(--text-soft)}
+.player-item .bot-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#7e57c2;color:white;margin-left:6px;}
+.board{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr);gap:6px;aspect-ratio:5/6;margin:16px 0;}
+.cell{position:relative;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--white);text-shadow:0 1px 2px rgba(0,0,0,.2);min-height:60px;padding:4px;text-align:center;}
+.cell .num{position:absolute;top:2px;left:4px;font-size:11px;opacity:.8}
+.cell .icon{font-size:28px}
+.cell.start{background:linear-gradient(135deg,#66bb6a,#43a047)}
+.cell.finish{background:linear-gradient(135deg,#ffd54f,#ffa726);color:#5d4037;text-shadow:none}
+.cell.normal{background:linear-gradient(135deg,var(--sky,#4fc3f7),var(--blue))}
+.cell.special{background:linear-gradient(135deg,var(--teal-light,#4db6ac),var(--teal))}
+.token{position:absolute;width:28px;height:28px;border-radius:50%;border:2px solid var(--white);box-shadow:0 2px 6px rgba(0,0,0,.3);overflow:hidden;z-index:5;}
+.token svg{width:100%;height:100%;display:block}
+.token.bot-token{border-color:#7e57c2;box-shadow:0 0 8px rgba(126,87,194,.5);}
+.modal{position:fixed;inset:0;background:rgba(26,35,126,.6);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:200;padding:20px;}
+.modal.active{display:flex}
+.modal-content{background:var(--card-bg);border-radius:24px;padding:32px;max-width:600px;width:100%;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto;border:1px solid var(--border-color);}
+.question-text{font-size:20px;line-height:1.5;margin-bottom:20px;font-weight:500}
+.answers{display:flex;flex-direction:column;gap:10px}
+.answer-btn{padding:14px 18px;border:3px solid var(--border-color);border-radius:14px;background:var(--card-bg);font-size:16px;text-align:left;transition:all .2s ease;color:var(--text);}
+.answer-btn:hover:not(:disabled){border-color:var(--blue);background:#e3f2fd}
+.answer-btn.correct{background:#c8e6c9;border-color:var(--green);color:#1b5e20}
+.answer-btn.wrong{background:#ffcdd2;border-color:#e57373;color:#b71c1c}
+.answer-btn.selected{background:#e3f2fd;border-color:var(--blue);font-weight:700}
+.answer-btn:disabled{cursor:not-allowed}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-150px);background:var(--card-bg);padding:14px 24px;border-radius:30px;box-shadow:var(--shadow-lg);font-size:16px;font-weight:600;z-index:300;transition:transform .5s ease;border-left:6px solid var(--teal);color:var(--text);border:1px solid var(--border-color);}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.error{border-left-color:#e57373}
+.toast.success{border-left-color:var(--green)}
+.toast.warning{border-left-color:#ff9800}
+.dice-container{display:flex;justify-content:center;margin:20px 0;}
+.dice{width:80px;height:80px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:bold;color:white;box-shadow:0 8px 16px rgba(0,0,0,0.3);}
+.dice.rolling{animation:rollDice 0.8s ease-out;}
+@keyframes rollDice{0%{transform:rotateX(0deg) rotateY(0deg) rotateZ(0deg);}25%{transform:rotateX(180deg) rotateY(90deg) rotateZ(45deg);}50%{transform:rotateX(360deg) rotateY(180deg) rotateZ(90deg);}75%{transform:rotateX(540deg) rotateY(270deg) rotateZ(135deg);}100%{transform:rotateX(720deg) rotateY(360deg) rotateZ(180deg);}}
+.dice-value{font-size:48px;font-weight:bold;color:var(--violet);text-align:center;margin:10px 0;}
+.winner-name{font-size:32px;text-align:center;color:var(--violet);font-weight:700;margin:16px 0;}
+.rating-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;margin:8px 0;background:#f5f7fa;border-radius:14px;font-size:16px;font-weight:600;gap:8px;flex-wrap:wrap;}
+.rating-row.first{background:linear-gradient(135deg,#fff9c4,#ffecb3);font-size:18px}
+.status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-left:8px;}
+.status-badge.host{background:#ffd54f;color:#5d4037}
+.status-badge.bot{background:#7e57c2;color:white}
+.connection-status{position:fixed;top:0;left:0;right:0;background:#ff9800;color:white;text-align:center;padding:8px;font-size:14px;font-weight:600;z-index:9999;display:none;}
+.connection-status.show{display:block}
+.rules-content h3{font-size:18px;color:var(--blue);margin:16px 0 8px;}
+.rules-content p, .rules-content li{font-size:15px;line-height:1.5;color:var(--text);margin-bottom:6px;}
+.rules-content ul{padding-left:20px;margin-bottom:12px;}
+.rules-content .special-cells{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0;}
+.rules-content .special-cell{padding:8px;background:linear-gradient(135deg,#e3f2fd,#f3e5f5);border-radius:10px;font-size:13px;}
+.rules-content .special-cell .icon{font-size:20px;margin-right:4px;}
+@media (max-width:768px){.characters-grid{grid-template-columns:repeat(4,1fr);gap:8px}.card{padding:20px}h1{font-size:28px}h2{font-size:20px}.room-code{font-size:36px;letter-spacing:4px}.rules-content .special-cells{grid-template-columns:1fr}}
+@media (max-width:420px){.characters-grid{grid-template-columns:repeat(4,1fr);gap:6px}.character-cell{padding:4px;border-radius:12px}.card{padding:16px}}
+</style>
+</head>
+<body>
+
+<div class="connection-status" id="connectionStatus">🔄 Переподключение к игре...</div>
+
+<div class="screen active" id="menuScreen">
+  <div class="card">
+    <h1>🌐 Азбука интернета</h1>
+    <div class="subtitle">Сетевая игра по цифровой грамотности</div>
+    <button class="btn btn-primary" onclick="showScreen('characterScreen'); requestAvatars(false);">🎮 Создать игру</button>
+    <button class="btn btn-bot" onclick="showScreen('characterScreen'); requestAvatars(true);">🤖 Игра с ботом</button>
+    <button class="btn btn-secondary" onclick="showScreen('joinScreen')">🔗 Присоединиться к игре</button>
+    <button class="btn btn-rules" onclick="showRules()">📖 Правила игры</button>
+  </div>
+</div>
+
+<div class="screen" id="characterScreen">
+  <div class="card">
+    <h2>🎭 Выберите персонажа</h2>
+    <div class="subtitle">Выберите аватар и введите ваше имя</div>
+    <div class="characters-grid" id="charactersGrid"></div>
+    <input type="text" class="input-field" id="playerNameInput" placeholder="Ваше имя (2-20 символов)" maxlength="20">
+    <button class="btn btn-primary" onclick="confirmCharacter()">Продолжить →</button>
+    <button class="btn btn-secondary" onclick="showScreen('menuScreen')">← Назад</button>
+  </div>
+</div>
+
+<div class="screen" id="joinScreen">
+  <div class="card">
+    <h2>🔗 Присоединиться к игре</h2>
+    <input type="text" class="input-field" id="roomCodeInput" placeholder="Код комнаты" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;font-weight:700">
+    <button class="btn btn-primary" onclick="checkAndJoinRoom()">Проверить и продолжить →</button>
+    <button class="btn btn-secondary" onclick="showScreen('menuScreen')">← Назад</button>
+  </div>
+</div>
+
+<div class="screen" id="waitingScreen">
+  <div class="card">
+    <h2>⏳ Ожидание игроков</h2>
+    <div class="subtitle">Код комнаты для друзей:</div>
+    <div class="room-code" id="roomCodeDisplay"></div>
+    <div class="subtitle">Поделитесь этим кодом с другими игроками</div>
+    <div class="players-list" id="waitingPlayersList"></div>
+    <button class="btn btn-primary" id="startGameBtn" onclick="startGame()" style="display:none">▶ Начать игру</button>
+  </div>
+</div>
+
+<div class="screen" id="gameScreen">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">🎲 Ходит: <span id="currentPlayerName"></span></h2>
+      <div id="roomCodeSmall" style="font-size:14px;color:var(--text-soft)"></div>
+    </div>
+    <div class="board" id="gameBoard"></div>
+    <div class="dice-container" id="diceContainer" style="display:none;"><div class="dice" id="diceAnimation">🎲</div></div>
+    <div class="dice-value" id="diceValue" style="display:none;"></div>
+    <button class="btn btn-primary" id="rollDiceBtn" onclick="rollDice()">🎲 Бросить кубик</button>
+    <button class="btn btn-secondary" id="reportStuckBtn" onclick="reportStuck()" style="display:none; margin-top:10px; font-size:14px; padding:10px 20px;">🆘 Сообщить о зависании</button>
+    <div class="players-list" id="gamePlayersList"></div>
+  </div>
+</div>
+
+<div class="modal" id="questionModal">
+  <div class="modal-content">
+    <h2 id="questionModalTitle">❓ Вопрос</h2>
+    <div class="question-text" id="modalQuestionText"></div>
+    <div class="answers" id="modalAnswers"></div>
+    <div class="answer-result-feedback" id="answerFeedback">
+      <span id="feedbackIcon"></span>
+      <span id="feedbackText"></span>
+      <div style="margin-top:8px;font-size:16px;font-weight:400;">
+        Правильный ответ: <span id="correctAnswerText" class="correct-answer-text"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="endGameModal">
+  <div class="modal-content">
+    <h1>🏆 Игра окончена!</h1>
+    <div class="winner-name" id="winnerName"></div>
+    <div id="ratingList"></div>
+    <button class="btn btn-primary" onclick="restartGame()">🔄 Новая игра</button>
+  </div>
+</div>
+
+<div class="modal" id="rulesModal">
+  <div class="modal-content">
+    <div class="rules-content">
+      <h2>📖 Правила игры</h2>
+      <h3>🎯 Цель игры</h3><p>Дойти до финиша (клетка 30) и набрать больше всех правильных ответов.</p>
+      <h3>👥 Игроки и ходы</h3><p>Ходы выполняются по очереди в <strong>алфавитном порядке имён</strong> (латиница имеет приоритет).</p>
+      <h3>🎲 Как играть</h3>
+      <ul>
+        <li>Нажмите «Бросить кубик»</li>
+        <li>Сначала вы увидите, сколько очков выпало</li>
+        <li>Затем появится вопрос. Выберите вариант ответа</li>
+        <li>Все игроки видят вопрос и ваш выбор</li>
+        <li>Если ответ верный — фишка движется вперёд. Если нет — остаётся на месте, все видят правильный ответ.</li>
+        <li>После ответа ход ВСЕГДА переходит к следующему игроку.</li>
+      </ul>
+      <h3>✨ Специальные клетки</h3>
+      <div class="special-cells">
+        <div class="special-cell"><span class="icon">📶</span><strong>Wi-Fi</strong> — вперёд на 2</div>
+        <div class="special-cell"><span class="icon">🔒</span><strong>Пароль</strong> — доп. ход</div>
+        <div class="special-cell"><span class="icon">📧</span><strong>Письмо</strong> — доп. вопрос</div>
+        <div class="special-cell"><span class="icon">🐞</span><strong>Вирус</strong> — пропуск хода</div>
+        <div class="special-cell"><span class="icon">⚠️</span><strong>Ссылка</strong> — назад на 3</div>
+        <div class="special-cell"><span class="icon">💾</span><strong>Копия</strong> — вперёд на 2</div>
+        <div class="special-cell"><span class="icon">🛡️</span><strong>2FA</strong> — вперёд на 4</div>
+        <div class="special-cell"><span class="icon">📚</span><strong>Курс</strong> — доп. вопрос</div>
+      </div>
+      <h3>🤖 Игра с ботом</h3>
+      <p>В режиме «Игра с ботом» вы соревнуетесь с компьютерным соперником. Бот ходит автоматически и отвечает на вопросы с разной вероятностью правильности.</p>
+      <button class="btn btn-primary" onclick="closeRules()" style="margin-top:20px;">Понятно, играть!</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="fireworks" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none;"></canvas>
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const Sound = {
+  ctx: null,
+  init() {
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  playTone(frequency, duration, type = 'sine', volume = 0.3, delay = 0) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.frequency.value = frequency; osc.type = type;
+    const startTime = this.ctx.currentTime + delay;
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+    osc.start(startTime); osc.stop(startTime + duration);
+  },
+  rollDice() { this.init(); this.playTone(150, 0.08, 'square', 0.2, 0); this.playTone(180, 0.08, 'square', 0.2, 0.08); this.playTone(200, 0.1, 'square', 0.25, 0.16); },
+  correct() { this.init(); this.playTone(523.25, 0.15, 'sine', 0.3, 0); this.playTone(659.25, 0.15, 'sine', 0.3, 0.1); this.playTone(783.99, 0.25, 'sine', 0.35, 0.2); },
+  wrong() { this.init(); this.playTone(400, 0.15, 'sawtooth', 0.25, 0); this.playTone(350, 0.15, 'sawtooth', 0.25, 0.12); this.playTone(300, 0.25, 'sawtooth', 0.3, 0.24); },
+  specialGood() { this.init(); this.playTone(880, 0.1, 'sine', 0.3, 0); this.playTone(1108.73, 0.15, 'sine', 0.35, 0.1); this.playTone(1318.51, 0.2, 'sine', 0.4, 0.2); },
+  specialBad() { this.init(); this.playTone(200, 0.15, 'sawtooth', 0.3, 0); this.playTone(150, 0.2, 'sawtooth', 0.35, 0.15); this.playTone(100, 0.3, 'sawtooth', 0.4, 0.3); },
+  win() { this.init(); const m = [{f:523.25,d:0.2,t:0},{f:659.25,d:0.2,t:0.2},{f:783.99,d:0.2,t:0.4},{f:1046.50,d:0.4,t:0.6},{f:783.99,d:0.15,t:1.1},{f:1046.50,d:0.5,t:1.25}]; m.forEach(n => this.playTone(n.f, n.d, 'triangle', 0.4, n.t)); }
+};
+
+const Fireworks = {
+  canvas: null, ctx: null, particles: [], animationId: null,
+  init() { if (this.canvas) return; this.canvas = document.getElementById('fireworks'); this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize()); },
+  resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; },
+  createParticle(x, y) { const colors = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffa500','#ff69b4','#ffeb3b','#e91e63']; return { x, y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, life: 1, color: colors[Math.floor(Math.random()*colors.length)], size: Math.random()*4+2 }; },
+  explode(x, y) { for (let i=0; i<60; i++) this.particles.push(this.createParticle(x, y)); },
+  animate() { this.ctx.fillStyle = 'rgba(0,0,0,0.15)'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); this.particles = this.particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.015; p.vx *= 0.98; p.vy *= 0.98; if (p.life > 0) { this.ctx.globalAlpha = p.life; this.ctx.fillStyle = p.color; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); this.ctx.fill(); return true; } return false; }); this.animationId = requestAnimationFrame(() => this.animate()); },
+  start() { this.init(); this.canvas.style.display = 'block'; this.particles = []; const exp = [{x:this.canvas.width*0.2,y:this.canvas.height*0.3},{x:this.canvas.width*0.5,y:this.canvas.height*0.25},{x:this.canvas.width*0.8,y:this.canvas.height*0.3},{x:this.canvas.width*0.3,y:this.canvas.height*0.5},{x:this.canvas.width*0.7,y:this.canvas.height*0.5}]; let delay = 0; exp.forEach(e => { setTimeout(() => { this.explode(e.x, e.y); Sound.playTone(800, 0.1, 'sine', 0.2, 0); Sound.playTone(1200, 0.15, 'sine', 0.25, 0.05); }, delay); delay += 400; }); const interval = setInterval(() => { if (this.canvas.style.display === 'none') { clearInterval(interval); return; } this.explode(Math.random()*this.canvas.width, Math.random()*this.canvas.height*0.6); }, 700); this.animate(); setTimeout(() => this.stop(), 12000); },
+  stop() { this.canvas.style.display = 'none'; if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; } if (this.ctx) this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); this.particles = []; }
+};
+
+const CharacterTemplates = [
+  { id:0, gender:'female', hair:'red', skin:'light', label:'Рыжая' },
+  { id:1, gender:'female', hair:'blonde', skin:'light', label:'Блондинка' },
+  { id:2, gender:'female', hair:'darkbrown', skin:'tan', label:'Брюнетка' },
+  { id:3, gender:'animal', hair:'cat', skin:'light', label:'Кошечка' },
+  { id:4, gender:'male', hair:'black', skin:'light', label:'Черноволосый' },
+  { id:5, gender:'male', hair:'brown', skin:'light', label:'Русый' },
+  { id:6, gender:'animal', hair:'dog', skin:'light', label:'Собачка' },
+  { id:7, gender:'male', hair:'darkchestnut', skin:'tan', label:'Тёмный' }
+];
+
+function animalSVG(type){
+  if(type === 'cat') return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bgCat" cx="50%" cy="40%"><stop offset="0%" stop-color="#e1f5fe"/><stop offset="100%" stop-color="#b3e5fc"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#bgCat)"/><path d="M22,35 L30,15 L40,30 Z" fill="#78909c"/><path d="M78,35 L70,15 L60,30 Z" fill="#78909c"/><path d="M25,32 L30,20 L37,30 Z" fill="#f8bbd0"/><path d="M75,32 L70,20 L63,30 Z" fill="#f8bbd0"/><ellipse cx="50" cy="55" rx="28" ry="26" fill="#b0bec5"/><ellipse cx="35" cy="60" rx="8" ry="6" fill="#cfd8dc"/><ellipse cx="65" cy="60" rx="8" ry="6" fill="#cfd8dc"/><ellipse cx="40" cy="50" rx="3.5" ry="4.5" fill="#fff"/><ellipse cx="60" cy="50" rx="3.5" ry="4.5" fill="#fff"/><ellipse cx="40" cy="50" rx="2" ry="3.5" fill="#2e7d32"/><ellipse cx="60" cy="50" rx="2" ry="3.5" fill="#2e7d32"/><ellipse cx="40" cy="50" rx=".8" ry="2.5" fill="#000"/><ellipse cx="60" cy="50" rx=".8" ry="2.5" fill="#000"/><circle cx="41" cy="49" r=".6" fill="#fff"/><circle cx="61" cy="49" r=".6" fill="#fff"/><path d="M48,60 Q50,58 52,60 Q52,62 50,63 Q48,62 48,60 Z" fill="#ec407a"/><path d="M50,63 L50,66" stroke="#455a64" stroke-width="1" fill="none"/><path d="M50,66 Q46,68 44,66" stroke="#455a64" stroke-width="1" fill="none"/><path d="M50,66 Q54,68 56,66" stroke="#455a64" stroke-width="1" fill="none"/><line x1="20" y1="60" x2="35" y2="62" stroke="#455a64" stroke-width=".8"/><line x1="20" y1="64" x2="35" y2="64" stroke="#455a64" stroke-width=".8"/><line x1="65" y1="62" x2="80" y2="60" stroke="#455a64" stroke-width=".8"/><line x1="65" y1="64" x2="80" y2="64" stroke="#455a64" stroke-width=".8"/></svg>';
+  if(type === 'dog') return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bgDog" cx="50%" cy="40%"><stop offset="0%" stop-color="#e1f5fe"/><stop offset="100%" stop-color="#b3e5fc"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#bgDog)"/><path d="M22,30 Q18,45 25,58 Q30,55 32,45 Q30,35 22,30 Z" fill="#8d6e63"/><path d="M78,30 Q82,45 75,58 Q70,55 68,45 Q70,35 78,30 Z" fill="#8d6e63"/><ellipse cx="50" cy="55" rx="28" ry="26" fill="#d7a86e"/><ellipse cx="50" cy="65" rx="16" ry="12" fill="#f5deb3"/><ellipse cx="40" cy="48" rx="3" ry="3.5" fill="#fff"/><ellipse cx="60" cy="48" rx="3" ry="3.5" fill="#fff"/><circle cx="40" cy="49" r="2" fill="#4e342e"/><circle cx="60" cy="49" r="2" fill="#4e342e"/><circle cx="41" cy="48" r=".7" fill="#fff"/><circle cx="61" cy="48" r=".7" fill="#fff"/><path d="M36,43 Q40,41 44,43" stroke="#5d4037" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M56,43 Q60,41 64,43" stroke="#5d4037" stroke-width="1.2" fill="none" stroke-linecap="round"/><ellipse cx="50" cy="60" rx="4" ry="3" fill="#3e2723"/><ellipse cx="49" cy="59" rx="1" ry=".8" fill="#fff" opacity=".6"/><path d="M50,63 L50,68" stroke="#5d4037" stroke-width="1.2" fill="none"/><path d="M50,68 Q46,70 44,68" stroke="#5d4037" stroke-width="1.2" fill="none"/><path d="M50,68 Q54,70 56,68" stroke="#5d4037" stroke-width="1.2" fill="none"/><ellipse cx="50" cy="72" rx="3" ry="4" fill="#ec407a"/><path d="M50,72 L50,76" stroke="#c2185b" stroke-width=".8"/></svg>';
+  return '';
+}
+
+function avatarSVG(hair, gender, skinTone){
+  if(hair === 'cat' || hair === 'dog') return animalSVG(hair);
+  const hairs = {red:{main:'#d84315',shadow:'#bf360c'},blonde:{main:'#f4c430',shadow:'#d4a017'},darkbrown:{main:'#3e2723',shadow:'#1b0000'},chestnut:{main:'#8b4513',shadow:'#5d2f0d'},black:{main:'#212121',shadow:'#000000'},brown:{main:'#8d6e63',shadow:'#5d4037'},gray:{main:'#b0bec5',shadow:'#78909c'},darkchestnut:{main:'#4e342e',shadow:'#2c1810'}};
+  const skins = {light:'#fdd9b5',fair:'#ffe0bd',tan:'#c68642'};
+  const h = hairs[hair], skin = skins[skinTone] || skins.light, bgId = 'bg'+hair+gender+skinTone;
+  const freckles = (skinTone === 'fair' || (hair === 'red' && skinTone === 'light')) ? '<circle cx="40" cy="58" r=".7" fill="#c97a4a" opacity=".6"/><circle cx="44" cy="60" r=".7" fill="#c97a4a" opacity=".6"/><circle cx="56" cy="60" r=".7" fill="#c97a4a" opacity=".6"/><circle cx="60" cy="58" r=".7" fill="#c97a4a" opacity=".6"/><circle cx="48" cy="62" r=".7" fill="#c97a4a" opacity=".6"/><circle cx="52" cy="62" r=".7" fill="#c97a4a" opacity=".6"/>' : '';
+  if(gender === 'female'){
+    return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="'+bgId+'" cx="50%" cy="40%"><stop offset="0%" stop-color="#e1f5fe"/><stop offset="100%" stop-color="#b3e5fc"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#'+bgId+')"/><path d="M20,55 Q15,30 50,20 Q85,30 80,55 L80,75 Q75,65 70,70 L70,50 Q65,35 50,32 Q35,35 30,50 L30,70 Q25,65 20,75 Z" fill="'+h.main+'"/><ellipse cx="50" cy="52" rx="22" ry="26" fill="'+skin+'"/><path d="M28,42 Q35,28 50,28 Q65,28 72,42 Q65,38 50,38 Q35,38 28,42 Z" fill="'+h.shadow+'"/><ellipse cx="42" cy="52" rx="2.5" ry="3.5" fill="#3e2723"/><ellipse cx="58" cy="52" rx="2.5" ry="3.5" fill="#3e2723"/><path d="M39,49 Q42,47 45,49" stroke="#3e2723" stroke-width="1" fill="none"/><path d="M55,49 Q58,47 61,49" stroke="#3e2723" stroke-width="1" fill="none"/><circle cx="43" cy="51" r=".8" fill="#fff"/><circle cx="59" cy="51" r=".8" fill="#fff"/><circle cx="38" cy="60" r="3" fill="#ffb6a3" opacity=".6"/><circle cx="62" cy="60" r="3" fill="#ffb6a3" opacity=".6"/>'+freckles+'<path d="M44,65 Q50,70 56,65" stroke="#c62828" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="28" cy="58" r="1.5" fill="#ffd54f"/><circle cx="72" cy="58" r="1.5" fill="#ffd54f"/></svg>';
+  }
+  return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="'+bgId+'" cx="50%" cy="40%"><stop offset="0%" stop-color="#e1f5fe"/><stop offset="100%" stop-color="#b3e5fc"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#'+bgId+')"/><path d="M25,45 Q22,25 50,18 Q78,25 75,45 Q72,35 65,32 Q58,30 50,30 Q42,30 35,32 Q28,35 25,45 Z" fill="'+h.main+'"/><ellipse cx="50" cy="54" rx="22" ry="25" fill="'+skin+'"/><path d="M38,46 L46,45" stroke="'+h.shadow+'" stroke-width="2" stroke-linecap="round"/><path d="M54,45 L62,46" stroke="'+h.shadow+'" stroke-width="2" stroke-linecap="round"/><ellipse cx="42" cy="52" rx="2.3" ry="3" fill="#3e2723"/><ellipse cx="58" cy="52" rx="2.3" ry="3" fill="#3e2723"/><circle cx="43" cy="51" r=".7" fill="#fff"/><circle cx="59" cy="51" r=".7" fill="#fff"/>'+freckles+'<path d="M50,55 L48,61 L52,61" stroke="#c9a58a" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M44,67 Q50,71 56,67" stroke="#6d4c41" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+}
+
+const socket = io({ 
+  reconnection: true, 
+  reconnectionAttempts: Infinity, 
+  reconnectionDelay: 1000, 
+  reconnectionDelayMax: 5000, 
+  timeout: 60000, 
+  transports: ['websocket', 'polling'] 
+});
+
+let myId = null, myName = '', myCharacter = null, currentRoom = null, isHost = false, pendingAction = null, pendingRoomCode = null, stuckTimeout = null, availableAvatars = [0,1,2,3,4,5,6,7], questionCloseTimeout = null;
+let createWithBot = false;
+let lastQuestion = null;
+let gameState = null;
+
+const ICON_WIFI = '\u{1F4F6}', ICON_LOCK = '\u{1F512}', ICON_MAIL = '\u{1F4E7}', ICON_BUG = '\u{1F41E}', ICON_WARN = '\u{26A0}\u{FE0F}', ICON_DISK = '\u{1F4BE}', ICON_SHIELD = '\u{1F6E1}\u{FE0F}', ICON_BOOK = '\u{1F4DA}';
+const ICON_MEDAL_1 = '\u{1F947}', ICON_MEDAL_2 = '\u{1F948}', ICON_MEDAL_3 = '\u{1F949}', ICON_MEDAL_4 = '\u{1F396}\u{FE0F}';
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+function showRules() { document.getElementById('rulesModal').classList.add('active'); }
+function closeRules() { document.getElementById('rulesModal').classList.remove('active'); }
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast show ' + type;
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+function requestAvatars(withBot = false) {
+  createWithBot = withBot;
+  availableAvatars = [0,1,2,3,4,5,6,7];
+  renderCharacters();
+}
+
+function renderCharacters() {
+  const grid = document.getElementById('charactersGrid');
+  grid.innerHTML = '';
+  CharacterTemplates.forEach((tpl) => {
+    const cell = document.createElement('div');
+    const isTaken = !availableAvatars.includes(tpl.id);
+    cell.className = 'character-cell' + (isTaken ? ' taken' : '');
+    if (myCharacter && myCharacter.id === tpl.id && !isTaken) cell.classList.add('selected');
+    cell.dataset.id = tpl.id;
+    cell.innerHTML = avatarSVG(tpl.hair, tpl.gender, tpl.skin) + '<div class="check-mark">✓</div>';
+    if (!isTaken) cell.addEventListener('click', () => { myCharacter = tpl; renderCharacters(); });
+    grid.appendChild(cell);
+  });
+}
+
+function confirmCharacter() {
+  if (!myCharacter) return showToast('Выберите персонажа', 'error');
+  const name = document.getElementById('playerNameInput').value.trim();
+  if (!name || name.length < 2 || name.length > 20) return showToast('Имя должно быть от 2 до 20 символов', 'error');
+  myName = name;
+
+  if (pendingAction === 'join') {
+    socket.emit('joinRoom', { roomId: pendingRoomCode, playerName: myName, character: myCharacter });
+  } else if (createWithBot) {
+    socket.emit('createBotRoom', { playerName: myName, character: myCharacter });
+    pendingAction = null;
+    pendingRoomCode = null;
+    createWithBot = false;
+  } else {
+    socket.emit('createRoom', { playerName: myName, character: myCharacter });
+    pendingAction = null;
+    pendingRoomCode = null;
+  }
+}
+
+function checkAndJoinRoom() {
+  const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+  if (!code) return showToast('Введите код комнаты', 'error');
+  pendingRoomCode = code;
+  socket.emit('checkRoom', { roomId: pendingRoomCode });
+}
+
+function startGame() { socket.emit('startGame'); }
+
+function restartGame() {
+  if (isHost) {
+    socket.emit('restartGame');
+    document.getElementById('endGameModal').classList.remove('active');
+    Fireworks.stop();
+  } else {
+    location.reload();
+  }
+}
+
+function rollDice() {
+  Sound.rollDice();
+  const diceContainer = document.getElementById('diceContainer');
+  const diceAnimation = document.getElementById('diceAnimation');
+  const rollBtn = document.getElementById('rollDiceBtn');
+  diceContainer.style.display = 'flex';
+  document.getElementById('diceValue').style.display = 'none';
+  rollBtn.disabled = true;
+  diceAnimation.classList.add('rolling');
+  socket.emit('rollDice');
+  setTimeout(() => diceAnimation.classList.remove('rolling'), 800);
+}
+
+function reportStuck() {
+  socket.emit('reportStuck');
+  showToast('🔄 Сигнал отправлен. Ожидаем подтверждения...', 'warning');
+  document.getElementById('reportStuckBtn').style.display = 'none';
+  if (stuckTimeout) { clearTimeout(stuckTimeout); stuckTimeout = null; }
+}
+
+function showQuestion(question, diceValue, isExtra = false) {
+  if (questionCloseTimeout) { clearTimeout(questionCloseTimeout); questionCloseTimeout = null; }
+  
+  lastQuestion = question;
+  const feedback = document.getElementById('answerFeedback');
+  feedback.className = 'answer-result-feedback';
+  feedback.style.display = 'none';
+  
+  const answers = document.getElementById('modalAnswers');
+  answers.innerHTML = '';
+  
+  document.getElementById('modalQuestionText').textContent = question.q;
+  document.getElementById('questionModalTitle').textContent = isExtra ? '❓ Дополнительный вопрос' : '❓ Вопрос';
+  
+  question.a.forEach((ans, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.dataset.index = i;
+    btn.textContent = `${String.fromCharCode(65 + i)}) ${ans}`;
+    btn.onclick = () => selectAndSubmitAnswer(i);
+    answers.appendChild(btn);
+  });
+  
+  if (isExtra) {
+    const extraHint = document.createElement('div');
+    extraHint.style.cssText = 'margin-top:12px;font-size:14px;color:var(--text-soft);text-align:center;';
+    extraHint.textContent = '✨ Дополнительный вопрос за специальную клетку!';
+    answers.appendChild(extraHint);
+  }
+  
+  document.getElementById('questionModal').classList.add('active');
+}
+
+function showAnswerResult(isCorrect, correctAnswer, question) {
+  if (!question || !question.a) {
+    if (questionCloseTimeout) { clearTimeout(questionCloseTimeout); questionCloseTimeout = null; }
+    questionCloseTimeout = setTimeout(() => {
+      closeQuestion();
+    }, 2000);
+    return;
+  }
+  
+  const feedback = document.getElementById('answerFeedback');
+  const icon = document.getElementById('feedbackIcon');
+  const text = document.getElementById('feedbackText');
+  const correctText = document.getElementById('correctAnswerText');
+  
+  document.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
+  
+  document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+    if (i === correctAnswer) {
+      btn.classList.add('correct');
+    }
+  });
+  
+  feedback.style.display = 'block';
+  if (isCorrect) {
+    feedback.className = 'answer-result-feedback correct';
+    icon.textContent = '✅ ';
+    text.textContent = 'Верно! Отличный ответ!';
+    correctText.textContent = question.a[correctAnswer] || 'неизвестно';
+  } else {
+    feedback.className = 'answer-result-feedback wrong';
+    icon.textContent = '❌ ';
+    text.textContent = 'Неверно, но теперь вы знаете правильный ответ:';
+    correctText.textContent = question.a[correctAnswer] || 'неизвестно';
+  }
+  
+  if (questionCloseTimeout) { clearTimeout(questionCloseTimeout); questionCloseTimeout = null; }
+  questionCloseTimeout = setTimeout(() => {
+    closeQuestion();
+    feedback.className = 'answer-result-feedback';
+    feedback.style.display = 'none';
+  }, 5000);
+}
+
+function closeQuestion() { 
+  document.getElementById('questionModal').classList.remove('active');
+  const feedback = document.getElementById('answerFeedback');
+  feedback.className = 'answer-result-feedback';
+  feedback.style.display = 'none';
+}
+
+function selectAndSubmitAnswer(index) {
+  const buttons = document.querySelectorAll('.answer-btn');
+  buttons.forEach(b => b.disabled = true);
+  buttons[index].classList.add('selected');
+  socket.emit('selectAnswer', index);
+  setTimeout(() => { socket.emit('answerQuestion', index); }, 500);
+}
+
+function updateWaitingPlayers(state) {
+  const list = document.getElementById('waitingPlayersList');
+  list.innerHTML = '';
+  state.players.forEach((p) => {
+    const item = document.createElement('div');
+    item.className = 'player-item';
+    const botBadge = p.isBot ? '<span class="status-badge bot">🤖 Бот</span>' : '';
+    item.innerHTML = `<div class="avatar">${avatarSVG(p.character.hair, p.character.gender, p.character.skin)}</div><div class="info"><div class="name">${p.name} ${p.isHost ? '<span class="status-badge host">Хост</span>' : ''} ${botBadge}</div></div>`;
+    list.appendChild(item);
+  });
+  document.getElementById('startGameBtn').style.display = (isHost && state.players.length >= 2) ? 'block' : 'none';
+}
+
+function buildBoard() {
+  const board = document.getElementById('gameBoard');
+  board.innerHTML = '';
+  const cellOrder = [];
+  for (let row = 0; row < 6; row++) {
+    const rowCells = [];
+    for (let col = 0; col < 5; col++) {
+      const idx = row % 2 === 0 ? row * 5 + col + 1 : row * 5 + (4 - col) + 1;
+      rowCells.push(idx);
+    }
+    cellOrder.push(rowCells);
+  }
+  const specialCells = { 5: ICON_WIFI, 9: ICON_LOCK, 12: ICON_MAIL, 15: ICON_BUG, 18: ICON_WARN, 21: ICON_DISK, 25: ICON_SHIELD, 28: ICON_BOOK };
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 5; c++) {
+      const cellIdx = cellOrder[r][c];
+      const div = document.createElement('div');
+      div.className = 'cell'; div.dataset.idx = cellIdx;
+      let cls = 'normal', icon = '\u{1F4BB}';
+      if (cellIdx === 1) { cls = 'start'; icon = '\u{1F3C1}'; }
+      else if (cellIdx === 30) { cls = 'finish'; icon = '\u{1F3C6}'; }
+      else if (specialCells[cellIdx]) { cls = 'special'; icon = specialCells[cellIdx]; }
+      div.classList.add(cls);
+      div.innerHTML = `<span class="num">${cellIdx}</span><div class="icon">${icon}</div>`;
+      board.appendChild(div);
+    }
+  }
+}
+
+function updateGameUI(state) {
+  currentRoom = state;
+  gameState = state;
+  const currentPlayerObj = state.players.find(p => p.id === state.turnOrder[state.currentTurnIndex]);
+  if (!currentPlayerObj) return;
+
+  document.getElementById('currentPlayerName').textContent = currentPlayerObj.name;
+  const list = document.getElementById('gamePlayersList');
+  list.innerHTML = '';
+  state.turnOrder.forEach(id => {
+    const p = state.players.find(pl => pl.id === id);
+    if (!p) return;
+    const item = document.createElement('div');
+    item.className = 'player-item' + (id === state.turnOrder[state.currentTurnIndex] ? ' active' : '');
+    const botBadge = p.isBot ? '<span class="status-badge bot">🤖</span>' : '';
+    item.innerHTML = `<div class="avatar">${avatarSVG(p.character.hair, p.character.gender, p.character.skin)}</div><div class="info"><div class="name">${p.name} ${botBadge} ${p.skipNext ? '🐞' : ''}</div><div class="stats">📍 ${p.position}/30 · ✅ ${p.correct} · 🎲 ${p.moves}</div></div>`;
+    list.appendChild(item);
+  });
+  
+  updateTokens(state);
+  const rollBtn = document.getElementById('rollDiceBtn');
+  const isMyTurn = currentPlayerObj.id === myId;
+  const isBotTurn = currentPlayerObj.isBot || false;
+  const isDisabled = !isMyTurn || state.waitingForAnswer || state.finished || isBotTurn;
+  
+  rollBtn.disabled = isDisabled;
+  
+  if (isBotTurn && !state.finished && !state.waitingForAnswer) {
+    rollBtn.textContent = '🤖 Ход бота...';
+  } else {
+    rollBtn.textContent = '🎲 Бросить кубик';
+  }
+  
+  const stuckBtn = document.getElementById('reportStuckBtn');
+  if (stuckTimeout) { clearTimeout(stuckTimeout); stuckTimeout = null; }
+  if (rollBtn.disabled && !state.finished && !state.waitingForAnswer && isMyTurn && !isBotTurn) {
+    stuckTimeout = setTimeout(() => { 
+      if (rollBtn.disabled && !state.finished && !state.waitingForAnswer && !isBotTurn) 
+        stuckBtn.style.display = 'block'; 
+    }, 5000);
+  } else { stuckBtn.style.display = 'none'; }
+}
+
+function updateTokens(state) {
+  document.querySelectorAll('.token').forEach(t => t.remove());
+  state.players.forEach((p, i) => {
+    const cell = document.querySelector(`.cell[data-idx="${p.position}"]`);
+    if (!cell) return;
+    const token = document.createElement('div');
+    token.className = 'token' + (p.isBot ? ' bot-token' : '');
+    token.innerHTML = avatarSVG(p.character.hair, p.character.gender, p.character.skin);
+    const offsets = [[-8, -8], [8, -8], [-8, 8], [8, 8]];
+    const [ox, oy] = offsets[i % 4] || [0, 0];
+    token.style.left = `calc(50% + ${ox}px - 14px)`;
+    token.style.top = `calc(50% + ${oy}px - 14px)`;
+    cell.appendChild(token);
+  });
+}
+
+function showEndGame(winner, rating) {
+  const winnerBadge = winner.isBot ? '🤖 ' : '';
+  document.getElementById('winnerName').textContent = `🏅 ${winnerBadge}${winner.name}`;
+  const list = document.getElementById('ratingList');
+  list.innerHTML = '';
+  const medals = [ICON_MEDAL_1, ICON_MEDAL_2, ICON_MEDAL_3, ICON_MEDAL_4];
+  rating.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'rating-row' + (i === 0 ? ' first' : '');
+    const botBadge = p.isBot ? '🤖 ' : '';
+    row.innerHTML = `<span>${medals[i] || ''} ${i + 1}-е место</span><span>${botBadge}${p.name}</span><span>✅ ${p.correct} · 🎲 ${p.moves}</span>`;
+    list.appendChild(row);
+  });
+  document.getElementById('endGameModal').classList.add('active');
+  Fireworks.start();
+}
+
+socket.on('connect', () => { 
+  myId = socket.id; 
+  document.getElementById('connectionStatus').classList.remove('show'); 
+  if (pendingRoomCode && myName) {
+    socket.emit('rejoinRoom', { roomId: pendingRoomCode, playerName: myName });
+  }
+});
+socket.on('disconnect', () => { document.getElementById('connectionStatus').classList.add('show'); });
+socket.on('reconnect', () => { 
+  document.getElementById('connectionStatus').classList.remove('show'); 
+  showToast('✅ Соединение восстановлено!', 'success'); 
+  if (pendingRoomCode && myName) {
+    socket.emit('rejoinRoom', { roomId: pendingRoomCode, playerName: myName });
+  }
+});
+
+socket.on('roomCheckResult', (data) => {
+  if (data.success) {
+    availableAvatars = data.availableAvatars;
+    pendingAction = 'join';
+    showScreen('characterScreen');
+    renderCharacters();
+  } else {
+    showToast(data.error, 'error');
+  }
+});
+
+socket.on('roomCreated', ({ roomId, state }) => {
+  currentRoom = state; 
+  isHost = true; 
+  pendingRoomCode = roomId;
+  pendingAction = null;
+  document.getElementById('roomCodeDisplay').textContent = roomId;
+  updateWaitingPlayers(state); 
+  showScreen('waitingScreen');
+  showToast('Комната создана!', 'success');
+});
+
+socket.on('rejoined', ({ state }) => {
+  currentRoom = state;
+  gameState = state;
+  isHost = state.players.find(p => p.id === myId)?.isHost || false;
+  if (state.finished) {
+    if (state.rating && state.rating.length > 0) {
+      showEndGame(state.rating[0], state.rating);
+    }
+  } else {
+     if (!document.getElementById('gameScreen').classList.contains('active')) {
+        showScreen('gameScreen');
+        document.getElementById('roomCodeSmall').textContent = 'Комната: ' + state.roomId;
+        buildBoard();
+     }
+     updateGameUI(state);
+     
+     if (state.waitingForAnswer && state.currentQuestion) {
+       const currentPlayer = state.players.find(p => p.id === state.turnOrder[state.currentTurnIndex]);
+       if (currentPlayer && currentPlayer.id === myId) {
+         showQuestion(state.currentQuestion, state.currentDiceValue, state.isExtraQuestion);
+       }
+     }
+  }
+  showToast('Вы вернулись в игру!', 'success');
+});
+
+socket.on('playerJoined', ({ state }) => { 
+  if (document.getElementById('waitingScreen').classList.contains('active')) {
+    updateWaitingPlayers(state); 
+  } else if (document.getElementById('gameScreen').classList.contains('active')) {
+    updateGameUI(state);
+  }
+  showToast('Игрок присоединился!', 'success'); 
+});
+socket.on('playerLeft', ({ state, name, disconnected }) => { 
+  if (document.getElementById('waitingScreen').classList.contains('active')) {
+    updateWaitingPlayers(state); 
+  } else if (document.getElementById('gameScreen').classList.contains('active')) {
+    updateGameUI(state);
+  }
+  if (disconnected) {
+    showToast(`${name || 'Игрок'} отключился`, 'warning');
+  } else {
+    showToast(`${name || 'Игрок'} покинул игру`, 'error');
+  }
+});
+socket.on('hostChanged', ({ state }) => { 
+  isHost = state.players.find(p => p.id === myId)?.isHost || false; 
+  if (document.getElementById('waitingScreen').classList.contains('active')) {
+    updateWaitingPlayers(state); 
+  }
+  if (isHost) showToast('Вы стали хостом!', 'success'); 
+});
+
+socket.on('gameStarted', ({ state }) => {
+  showScreen('gameScreen');
+  document.getElementById('roomCodeSmall').textContent = 'Комната: ' + state.roomId;
+  buildBoard(); 
+  updateGameUI(state); 
+  const hasBot = state.players.some(p => p.isBot);
+  showToast(hasBot ? '🤖 Игра с ботом началась!' : 'Игра началась!', 'success');
+});
+
+socket.on('diceRolled', ({ value, state }) => {
+  updateGameUI(state);
+  const diceValueEl = document.getElementById('diceValue');
+  diceValueEl.textContent = `Выпало: ${value}`;
+  diceValueEl.style.display = 'block';
+  setTimeout(() => { 
+    document.getElementById('diceContainer').style.display = 'none'; 
+  }, 2500);
+});
+
+socket.on('questionShown', ({ question, diceValue, state, specialCell, isExtraQuestion }) => {
+  updateGameUI(state);
+  if (questionCloseTimeout) { clearTimeout(questionCloseTimeout); questionCloseTimeout = null; }
+  
+  const feedback = document.getElementById('answerFeedback');
+  feedback.className = 'answer-result-feedback';
+  feedback.style.display = 'none';
+  
+  if (specialCell) {
+    if (specialCell.icon === ICON_BUG || specialCell.icon === ICON_WARN) {
+      Sound.specialBad(); 
+      showToast(`${specialCell.icon} ${specialCell.title}`, 'warning');
+    } else {
+      Sound.specialGood(); 
+      showToast(`${specialCell.icon} ${specialCell.title}`, 'success');
+    }
+  }
+  
+  const isExtra = isExtraQuestion || state.isExtraQuestion || false;
+  showQuestion(question, diceValue, isExtra);
+});
+
+socket.on('specialCellMessage', ({ title, description, icon, playerName }) => {
+  showToast(`${icon} ${playerName} попал на клетку "${title}"! ${description}`, 'warning');
+  setTimeout(() => {
+    showToast(`✨ Действие клетки "${title}" активировано!`, 'success');
+  }, 2500);
+});
+
+socket.on('answerSelected', ({ answerIndex, playerName }) => {
+  const buttons = document.querySelectorAll('.answer-btn');
+  if (buttons[answerIndex]) buttons[answerIndex].classList.add('selected');
+  showToast(`${playerName} выбрал ответ`, 'success');
+});
+
+socket.on('answerResult', ({ isCorrect, correctAnswer, state, specialCell, message, extraTurn, isExtraQuestion, skipNext, turnAdvanced }) => {
+  updateGameUI(state);
+  if (questionCloseTimeout) { clearTimeout(questionCloseTimeout); questionCloseTimeout = null; }
+  
+  if (lastQuestion) {
+    showAnswerResult(isCorrect, correctAnswer, lastQuestion);
+  } else {
+    setTimeout(() => closeQuestion(), 1500);
+  }
+  
+  if (isCorrect) {
+    Sound.correct();
+  } else {
+    Sound.wrong();
+  }
+  
+  if (specialCell) {
+    setTimeout(() => {
+      if (specialCell.icon === ICON_BUG || specialCell.icon === ICON_WARN) {
+        Sound.specialBad();
+        showToast(`${specialCell.icon} ${specialCell.title}`, 'warning');
+      } else {
+        Sound.specialGood();
+        showToast(`${specialCell.icon} ${specialCell.title}`, 'success');
+      }
+    }, 1000);
+  }
+  if (message) setTimeout(() => showToast(message, 'success'), 1000);
+  if (extraTurn) {
+    setTimeout(() => showToast('🔄 Дополнительный ход!', 'success'), 1500);
+  }
+});
+
+socket.on('turnChanged', ({ state, currentPlayerName }) => {
+  updateGameUI(state);
+  
+  const feedback = document.getElementById('answerFeedback');
+  if (feedback && feedback.style.display === 'block') {
+    return;
+  }
+  
+  closeQuestion();
+  const currentPlayer = state.players.find(p => p.id === state.turnOrder[state.currentTurnIndex]);
+  const isMyTurn = currentPlayer && currentPlayer.id === myId;
+  const isBotTurn = currentPlayer && currentPlayer.isBot;
+  
+  if (isBotTurn) {
+    document.getElementById('rollDiceBtn').disabled = true;
+    document.getElementById('rollDiceBtn').textContent = '🤖 Ход бота...';
+  } else {
+    document.getElementById('rollDiceBtn').disabled = !isMyTurn;
+    document.getElementById('rollDiceBtn').textContent = '🎲 Бросить кубик';
+  }
+  showToast(isMyTurn ? `🎲 Ваш ход, ${currentPlayerName}!` : `Ходит ${currentPlayerName}`, 'success');
+});
+
+socket.on('turnSkipped', ({ playerName, state }) => { 
+  updateGameUI(state); 
+  showToast(`${playerName} пропускает ход`, 'error'); 
+});
+socket.on('gameEnded', ({ winner, rating, state }) => { 
+  updateGameUI(state); 
+  Sound.win(); 
+  showEndGame(winner, rating); 
+});
+socket.on('message', ({ text, type }) => { showToast(text, type || 'success'); });
+socket.on('error', (message) => { showToast(message, 'error'); });
+
+socket.on('stateUpdate', ({ state }) => {
+  if (document.getElementById('gameScreen').classList.contains('active')) {
+    updateGameUI(state);
+  }
+});
+
+setInterval(() => { if (socket.connected) socket.emit('keepalive'); }, 10000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !socket.connected) socket.connect();
+});
+</script>
+</body>
+</html>
